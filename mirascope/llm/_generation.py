@@ -29,20 +29,11 @@ Internal architecture:
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from typing import (
-    Any,
-    AsyncIterable,
-    Awaitable,
-    Callable,
     Generic,
-    Iterable,
-    Optional,
-    Protocol,
-    Type,
+    ParamSpec,
     TypeVar,
-    Union,
-    cast,
-    overload,
 )
 
 from ..core.base import BaseTool
@@ -50,9 +41,20 @@ from ._response import Response
 from .stream import Stream
 
 # Type variables for generics
-P = TypeVar("P", contravariant=True)  # Parameters
+P = ParamSpec("P")  # Parameters
 T = TypeVar("T")  # Output type (parameterized)
 R = TypeVar("R")  # Return type of wrapped function
+
+
+# Create a TypeStream for type-safe streaming
+class TypedStream(Stream, Generic[T]):
+    """Type-parameterized Stream for LLM generations.
+
+    This extends the base Stream class with type information,
+    allowing for properly typed access to stream chunks.
+    """
+
+    pass
 
 
 class Generation(Generic[P, T]):
@@ -70,9 +72,8 @@ class Generation(Generic[P, T]):
     def __init__(
         self,
         prompt_fn: Callable[P, R],
-        returns: Optional[Type[T]] = None,
-        tools: Optional[list[BaseTool]] = None,
-        json_mode: bool = False,
+        returns: type[T] | None = None,
+        tools: list[BaseTool] | None = None,
     ) -> None:
         """Initialize a Generation object.
 
@@ -80,7 +81,6 @@ class Generation(Generic[P, T]):
             prompt_fn: The prompt function to wrap
             returns: Optional return type for structured output
             tools: Optional list of tools for the LLM to use
-            json_mode: Whether to use JSON mode
         """
         self._prompt_fn = prompt_fn
         self._returns = returns
@@ -88,7 +88,7 @@ class Generation(Generic[P, T]):
 
     # Configuration methods - each returns a new Generation with updated config
 
-    def returns(self, model_type: Type[T]) -> "Generation[P, T]":
+    def returns(self, model_type: type[T]) -> Generation[P, T]:
         """Configure the generation to return a structured response model.
 
         Args:
@@ -103,7 +103,7 @@ class Generation(Generic[P, T]):
             tools=self._tools,
         )
 
-    def with_tools(self, tools: list[BaseTool]) -> "Generation[P, T]":
+    def with_tools(self, tools: list[BaseTool]) -> Generation[P, T]:
         """Configure the generation to use the specified tools.
 
         Args:
@@ -120,7 +120,7 @@ class Generation(Generic[P, T]):
 
     # Execution methods - these perform the actual LLM call
 
-    def stream(self, *args: P.args, **kwargs: P.kwargs) -> Stream[T]:
+    def stream(self, *args: P.args, **kwargs: P.kwargs) -> TypedStream[T]:
         """Execute the generation with streaming enabled.
 
         Args:
@@ -128,10 +128,9 @@ class Generation(Generic[P, T]):
             **kwargs: Keyword arguments for the prompt function
 
         Returns:
-            A Stream object containing the streaming response
+            A TypedStream object containing the streaming response
         """
-        # Stub implementation - actual impl would interact with provider
-        return Stream()  # type: ignore
+        raise NotImplementedError("The stream method is not yet implemented")
 
     async def acall(self, *args: P.args, **kwargs: P.kwargs) -> Response[T]:
         """Execute the generation asynchronously.
@@ -143,10 +142,9 @@ class Generation(Generic[P, T]):
         Returns:
             A Response object containing the response
         """
-        # Stub implementation - actual impl would interact with provider
-        return Response()  # type: ignore
+        raise NotImplementedError("The acall method is not yet implemented")
 
-    async def astream(self, *args: P.args, **kwargs: P.kwargs) -> Stream[T]:
+    async def astream(self, *args: P.args, **kwargs: P.kwargs) -> TypedStream[T]:
         """Execute the generation with streaming enabled and asynchronously.
 
         Args:
@@ -154,10 +152,9 @@ class Generation(Generic[P, T]):
             **kwargs: Keyword arguments for the prompt function
 
         Returns:
-            A Stream object containing the streaming response
+            A TypedStream object containing the streaming response
         """
-        # Stub implementation - actual impl would interact with provider
-        return Stream()  # type: ignore
+        raise NotImplementedError("The astream method is not yet implemented")
 
     def __call__(self, *args: P.args, **kwargs: P.kwargs) -> Response[T]:
         """Execute the generation synchronously (alias for call).
@@ -181,14 +178,14 @@ class Generation(Generic[P, T]):
         Returns:
             A Response object containing the response
         """
-        # Stub implementation - actual impl would interact with provider
-        return Response()  # type: ignore
+        raise NotImplementedError("The call method is not yet implemented")
 
 
 def generation(
-    returns: Optional[Type[T]] = None,
-    **kwargs: Any,
-) -> Callable[[Callable[P, R]], Generation[P, T]]:
+    returns: type[T] | None = None,
+    tools: list[BaseTool] | None = None,
+    **kwargs: object,
+) -> Callable[[Callable[P, object]], Generation[P, T]]:
     """Decorator that transforms a function into a Generation object.
 
     This decorator wraps a prompt function and returns a Generation object
@@ -196,13 +193,14 @@ def generation(
 
     Args:
         returns: Optional return type for structured output
+        tools: Optional list of tools for the LLM to use
         **kwargs: Additional configuration options for the Generation
 
     Returns:
         A decorator function that creates a Generation from a prompt function
     """
 
-    def decorator(fn: Callable[P, R]) -> Generation[P, T]:
+    def decorator(fn: Callable[P, object]) -> Generation[P, T]:
         """The actual decorator function.
 
         Args:
@@ -211,6 +209,6 @@ def generation(
         Returns:
             A Generation object wrapping the prompt function
         """
-        return Generation(fn, returns=returns)
+        return Generation(fn, returns=returns, tools=tools)
 
     return decorator

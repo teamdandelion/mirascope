@@ -1,7 +1,8 @@
 from ..core import CostMetadata, LocalProvider, Provider, calculate_cost
+from . import returns
 from ._call import call
 from ._context import context
-from ._generation import generation
+from ._generation import TypedStream, generation
 from ._model import model
 from ._override import override
 from ._response import Response
@@ -17,10 +18,12 @@ __all__ = [
     "Response",
     "Stream",
     "Tool",
+    "TypedStream",
     "calculate_cost",
     "call",
     "context",
     "generation",
     "model",
     "override",
+    "returns",
 ]

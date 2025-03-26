@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import AsyncGenerator, Generator
-from typing import Any, TypeVar
+from typing import Any, Generic, TypeVar
 
 from ..core.base import (
     BaseCallParams,
@@ -19,6 +19,9 @@ from ..core.base.types import FinishReason
 from ..llm.call_response import CallResponse
 from ..llm.call_response_chunk import CallResponseChunk
 from .tool import Tool
+
+# Type parameter for generic streams
+T = TypeVar("T")
 
 _BaseCallResponseT = TypeVar("_BaseCallResponseT", bound=BaseCallResponse)
 _BaseCallResponseChunkT = TypeVar(
@@ -36,6 +39,7 @@ _FinishReasonT = TypeVar("_FinishReasonT")
 
 
 class Stream(
+    Generic[T],
     BaseStream[
         BaseCallResponse,
         BaseCallResponseChunk,
@@ -50,7 +54,11 @@ class Stream(
         FinishReason,
     ],
 ):
-    """A non-pydantic class that inherits from BaseStream."""
+    """A non-pydantic class that inherits from BaseStream.
+    
+    Type Parameters:
+        T: The type of the content being streamed.
+    """
 
     _stream: BaseStream[
         BaseCallResponse,

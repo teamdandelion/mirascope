@@ -6,10 +6,9 @@ type information, allowing for properly typed access to the response content.
 
 from __future__ import annotations
 
-from typing import Any, Generic, List, Optional, TypeVar, Union
+from typing import Generic, TypeVar
 
 from ..core.base import BaseCallResponse, BaseTool
-from ..core.costs import CostMetadata
 
 T = TypeVar("T")  # Response content type parameter
 
@@ -25,17 +24,17 @@ class Response(Generic[T]):
         model (str): The name of the model that generated the response.
         id (str): A unique identifier for the response.
         tools (List[BaseTool]): Any tools used by the model in generating the response.
-        cost (Optional[CostMetadata]): Cost information for the API call.
+        cost (Optional[float]): Cost information for the API call.
     """
     
     def __init__(
         self,
-        content: T = None,  # type: ignore
+        content: T | None = None,
         model: str = "",
         id: str = "",
-        tools: Optional[List[BaseTool]] = None,
-        cost: Optional[CostMetadata] = None,
-        response: Optional[BaseCallResponse] = None,
+        tools: list[BaseTool] | None = None,
+        cost: float | None = None,
+        response: BaseCallResponse | None = None,
     ) -> None:
         """Initialize a Response object.
         
@@ -65,37 +64,47 @@ class Response(Generic[T]):
         Returns:
             A new Response object with the typed content.
         """
+        # Extract values with safe defaults
+        model = call_response.model if hasattr(call_response, "model") and call_response.model is not None else ""
+        id = call_response.id if hasattr(call_response, "id") and call_response.id is not None else ""
+        tools = call_response.tools if hasattr(call_response, "tools") and call_response.tools is not None else []
+        cost = call_response.cost if hasattr(call_response, "cost") and call_response.cost is not None else None
+        
         return cls(
             content=content,
-            model=call_response.model,
-            id=call_response.id if hasattr(call_response, "id") else "",
-            tools=call_response.tools if hasattr(call_response, "tools") else None,
-            cost=call_response.cost if hasattr(call_response, "cost") else None,
+            model=model,
+            id=id,
+            tools=tools,
+            cost=cost,
             response=call_response,
         )
     
     @property
-    def input_tokens(self) -> Optional[int]:
+    def input_tokens(self) -> int | None:
         """Number of input tokens used in the request."""
         if self._response and hasattr(self._response, "input_tokens"):
-            return self._response.input_tokens
+            tokens = self._response.input_tokens
+            return int(tokens) if tokens is not None else None
         return None
     
     @property
-    def output_tokens(self) -> Optional[int]:
+    def output_tokens(self) -> int | None:
         """Number of output tokens generated in the response."""
         if self._response and hasattr(self._response, "output_tokens"):
-            return self._response.output_tokens
+            tokens = self._response.output_tokens
+            return int(tokens) if tokens is not None else None
         return None
     
     @property
-    def tool(self) -> Optional[BaseTool]:
+    def tool(self) -> BaseTool | None:
         """The first tool used in the response, if any."""
         return self.tools[0] if self.tools else None
     
     @property
     def response(self) -> BaseCallResponse:
         """The underlying provider-specific response object."""
+        if self._response is None:
+            raise ValueError("No underlying response object is available")
         return self._response
     
     def __str__(self) -> str:
